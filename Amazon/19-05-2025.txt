@@ -1,0 +1,51 @@
+ALGORITHMS STANFORD
+Solve problems on leetcode
+
+GRAPH THEORY!
+RECURSION
+
+
+
+Imagine a robot sitting on the upper left corner of an NxM grid. The robot can only move in two directions: right and down.
+Imagine certain squares are “off limits”, such that the robot can not step on them.
+Design an algorithm to find a path for the robot from the top left to the bottom right.  
+Sample grid input (where -1 represents cells that are off-limit):
+{0, 0,
+{-1, 0,
+
+{0, 0, 0, 0}
+{0, 0, 0, 0}
+{0, -1, 0, 0}
+{0, -1, 0, 0}
+
+[{0,0}, {0,1}.... {N, M}]
+
+def move_bot(arr,m,n): true/false
+    a = 0
+    b = 0
+    result = []
+    for x in range (len(arr)):
+        for y in range(len(arr[0])):
+            if arr[x][y] == 0:
+                a=x
+                b=y
+                result.append(a,b)
+            elif arr[x][y] == -1:
+                break
+
+def move_bot(int i, j, arr): true/false
+    if end of the grid 
+    
+    
+    if i == len(arr)-1 and j == len(arr[0])-1
+        return True
+    
+    
+    
+    move_bot(i+1, j, arr)
+    
+    move_bot(i, j+1, arr)
+    
+    
+    if arr[i][j] == -1:
+        return False

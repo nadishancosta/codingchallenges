@@ -4,40 +4,45 @@ import numpy as np
 
 def process_iaq_query(df):
     """
-    Calculates the average temperature of each room in the mornings and evenings.
+    Calculates the average temperature of each room in mornings and evenings.
 
     Args:
-        df (pd.DataFrame): DataFrame containing IAQ data with columns:
-                           ['Timestamp', 'CO2', 'Relative Humidity', 'Temperature', 'Room'].
+        df (pd.DataFrame): DataFrame with IAQ data, including 'Timestamp', 'Temperature', and 'Room' columns.
 
     Returns:
-        dict: A JSON-compatible dictionary containing the average temperature for each room in the mornings and evenings.
-              The dictionary is in the "table" format.
+        dict: A JSON-compatible dictionary containing the average temperature for each room in the morning and evening.
     """
 
-    def categorize_time(timestamp):
-        hour = timestamp.hour
-        if 6 <= hour < 12:
-            return 'Morning'
-        elif 18 <= hour < 24:
-            return 'Evening'
-        else:
-            return None
-
+    # Convert Timestamp to datetime objects
     df['Timestamp'] = pd.to_datetime(df['Timestamp'])
-    df['Time Category'] = df['Timestamp'].apply(categorize_time)
 
-    df_filtered = df[df['Time Category'].isin(['Morning', 'Evening'])]
+    # Define morning and evening time ranges
+    morning_start = 6
+    morning_end = 12
+    evening_start = 18
+    evening_end = 24
 
-    if df_filtered.empty:
-        return {"type": "text", "data": "No data available for mornings and evenings."}
-    
-    avg_temp = df_filtered.groupby(['Room', 'Time Category'])['Temperature'].mean().reset_index()
+    # Create morning and evening columns
+    df['Morning'] = ((df['Timestamp'].dt.hour >= morning_start) & (df['Timestamp'].dt.hour < morning_end))
+    df['Evening'] = ((df['Timestamp'].dt.hour >= evening_start) & (df['Timestamp'].dt.hour < evening_end))
 
-    if avg_temp.empty:
-        return {"type": "text", "data": "No data available."}
+    # Calculate average temperature for each room in the morning
+    morning_temps = df[df['Morning']].groupby('Room')['Temperature'].mean().reset_index()
+    morning_temps = morning_temps.rename(columns={'Temperature': 'Avg_Morning_Temp'})
 
-    headers = ['Room', 'Time Category', 'Average Temperature']
-    rows = avg_temp.values.tolist()
+    # Calculate average temperature for each room in the evening
+    evening_temps = df[df['Evening']].groupby('Room')['Temperature'].mean().reset_index()
+    evening_temps = evening_temps.rename(columns={'Temperature': 'Avg_Evening_Temp'})
 
-    return {"type": "table", "data": {"headers": headers, "rows": rows}}
+    # Merge the results
+    merged_temps = pd.merge(morning_temps, evening_temps, on='Room', how='outer')
+
+    # Handle cases where there is no morning or evening data for a room
+    merged_temps['Avg_Morning_Temp'] = merged_temps['Avg_Morning_Temp'].fillna(np.nan)
+    merged_temps['Avg_Evening_Temp'] = merged_temps['Avg_Evening_Temp'].fillna(np.nan)
+
+    # Convert to a list of lists for the table
+    data = merged_temps.values.tolist()
+    headers = ['Room', 'Avg_Morning_Temp', 'Avg_Evening_Temp']
+
+    return {"type": "table", "data": {"headers": headers, "rows": data}}

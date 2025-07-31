@@ -77,6 +77,7 @@ async def call_agent_async(query):
                 for part in event.content.parts:  # Iterate through all parts
                     if part.executable_code:
                         # Access the actual code string via .code
+                        
                         print(
                             f"  Debug: Agent generated code:\n```python\n{part.executable_code.code}\n```"
                         )
@@ -118,19 +119,24 @@ async def call_agent_async(query):
 
 
 # Main async function to run the examples
-async def main():
-    await call_agent_async("What is the average temperature of each room in mornings and evenings?")
+async def main(query):
+    await call_agent_async(query)
 
 
 # Execute the main async function
-try:
-    asyncio.run(main())
-except RuntimeError as e:
-    # Handle specific error when running asyncio.run in an already running loop (like Jupyter/Colab)
-    if "cannot be called from a running event loop" in str(e):
-        print("\nRunning in an existing event loop (like Colab/Jupyter).")
-        print("Please run `await main()` in a notebook cell instead.")
-        # If in an interactive environment like a notebook, you might need to run:
-        # await main()
-    else:
-        raise e  # Re-raise other runtime errors
+def run_prompt(query):
+    try:
+        asyncio.run(main(query))
+        import generated_script
+        df = _load_and_prepare_data()
+        output_JSON = generated_script.process_iaq_query(df)
+        return output_JSON
+    except RuntimeError as e:
+        # Handle specific error when running asyncio.run in an already running loop (like Jupyter/Colab)
+        if "cannot be called from a running event loop" in str(e):
+            print("\nRunning in an existing event loop (like Colab/Jupyter).")
+            print("Please run `await main()` in a notebook cell instead.")
+            # If in an interactive environment like a notebook, you might need to run:
+            # await main()
+        else:
+            raise e  # Re-raise other runtime errors

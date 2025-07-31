@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from .agent import run_analysis
+from .agent import run_prompt
 
 app = FastAPI(
     # title="IAQ Analysis Tool API",
@@ -39,8 +39,8 @@ async def analyze_query(request: QueryRequest):
     
     try:
         # This is the main call to our agent logic
-        result = run_analysis(request.query)
-        return result
+        result = run_prompt(request.query)
+        return await result
     except Exception as e:
         # Generic error handler for unexpected issues
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")

@@ -210,7 +210,7 @@ Output:
 
 ### Constraints
 
-- Use only pandas, numpy, matplotlib, scipy (already imported). Do not import extra libraries.
+- DO NOT import any libraries. Assume all libraries are pre-loaded.
 - Do not modify or reload data. Assume df is already prepared.
 - Do not include example executions or print statements.
 - Do not ask the user for clarifications.

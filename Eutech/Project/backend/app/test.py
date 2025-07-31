@@ -45,98 +45,92 @@ SESSION_ID = "session_code_exec_async"
 data_analyst_agent = Agent(
     name=AGENT_NAME,
     model=AGENT_MODEL,
+    code_executor=BuiltInCodeExecutor(),
     description="Provides processed data for questions regarding air quality.",
-    instruction=return_instructions(),
-    tools=[_load_and_prepare_data],
-    #     optimize_data_file=True,
-    #     stateful=True,
-    # )
+    instruction=return_instructions()
 )
 
 print(f"Agent '{data_analyst_agent.name}' created using model '{AGENT_MODEL}'.")
 
-# @title Setup Session Service and Runner
 
-# --- Session Management ---
-# Key Concept: SessionService stores conversation history & state.
-# InMemorySessionService is simple, non-persistent storage for this tutorial.
+# Session and Runner
 session_service = InMemorySessionService()
-
-# Define constants for identifying the interaction context
-APP_NAME = "data_analyst_app"
-USER_ID = "user_1"
-SESSION_ID = "session_001"  # Using a fixed ID for simplicity
-
-# Create the specific session where the conversation will happen
-# session = await
-session_service.create_session(
+session = asyncio.run(session_service.create_session(
     app_name=APP_NAME, user_id=USER_ID, session_id=SESSION_ID
-)
-print(f"Session created: App='{APP_NAME}', User='{USER_ID}', Session='{SESSION_ID}'")
+))
+runner = Runner(agent=data_analyst_agent, app_name=APP_NAME, session_service=session_service)
 
-# --- Runner ---
-# Key Concept: Runner orchestrates the agent execution loop.
-runner = Runner(
-    agent=data_analyst_agent,  # The agent we want to run
-    app_name=APP_NAME,  # Associates runs with our app
-    session_service=session_service,  # Uses our session manager
-)
-print(f"Runner created for agent '{runner.agent.name}'.")
-
-
-# @title Define Agent Interaction Function
-
-from google.genai import types  # For creating message Content/Parts
-
-
-async def call_agent_async(query: str, runner, user_id, session_id):
-    """Sends a query to the agent and prints the final response."""
-    print(f"\n>>> User Query: {query}")
-
-    # Prepare the user's message in ADK format
+async def call_agent_async(query):
     content = types.Content(role="user", parts=[types.Part(text=query)])
+    print(f"\n--- Running Query: {query} ---")
+    final_response_text = "No final text response captured."
+    try:
+        # Use run_async
+        async for event in runner.run_async(
+            user_id=USER_ID, session_id=SESSION_ID, new_message=content
+        ):
+            print(f"Event ID: {event.id}, Author: {event.author}")
 
-    final_response_text = "Agent did not produce a final response."  # Default
-
-    # Key Concept: run_async executes the agent logic and yields Events.
-    # We iterate through events to find the final answer.
-    async for event in runner.run_async(
-        user_id=user_id, session_id=session_id, new_message=content
-    ):
-        # You can uncomment the line below to see *all* events during execution
-        # print(f"  [Event] Author: {event.author}, Type: {type(event).__name__}, Final: {event.is_final_response()}, Content: {event.content}")
-
-        # Key Concept: is_final_response() marks the concluding message for the turn.
-        if event.is_final_response():
+            # --- Check for specific parts FIRST ---
+            has_specific_part = False
             if event.content and event.content.parts:
-                # Assuming text response in the first part
-                final_response_text = event.content.parts[0].text
-            elif (
-                event.actions and event.actions.escalate
-            ):  # Handle potential errors/escalations
-                final_response_text = (
-                    f"Agent escalated: {event.error_message or 'No specific message.'}"
-                )
-            # Add more checks here if needed (e.g., specific error codes)
-            break  # Stop processing events once the final response is found
+                for part in event.content.parts:  # Iterate through all parts
+                    if part.executable_code:
+                        # Access the actual code string via .code
+                        print(
+                            f"  Debug: Agent generated code:\n```python\n{part.executable_code.code}\n```"
+                        )
+                        has_specific_part = True
+                    elif part.code_execution_result:
+                        # Access outcome and output correctly
+                        print(
+                            f"  Debug: Code Execution Result: {part.code_execution_result.outcome} - Output:\n{part.code_execution_result.output}"
+                        )
+                        has_specific_part = True
+                    # Also print any text parts found in any event for debugging
+                    elif part.text and not part.text.isspace():
+                        print(f"  Text: '{part.text.strip()}'")
+                        # Do not set has_specific_part=True here, as we want the final response logic below
 
-    print(f"<<< Agent Response: {final_response_text}")
-# We need an async function to await our interaction helper
-def run_conversation():
-    call_agent_async("What is the average temperature of room 1?",
-                                       runner=runner,
-                                       user_id=USER_ID,
-                                       session_id=SESSION_ID)
+            # --- Check for final response AFTER specific parts ---
+            # Only consider it final if it doesn't have the specific code parts we just handled
+            if not has_specific_part and event.is_final_response():
+                if (
+                    event.content
+                    and event.content.parts
+                    and event.content.parts[0].text
+                ):
+                    final_response_text = event.content.parts[0].text.strip()
+                    print(f"==> Final Agent Response: {final_response_text}")
+                else:
+                    print("==> Final Agent Response: [No text content in final event]")
 
-if __name__ == "__main__":
-    run_conversation()
+    except Exception as e:
+        print(f"ERROR during agent run: {e}")
+    print("-" * 30)
+    
+    try:
+        
+        with open(os.path.join(os.path.dirname(__file__), "generated_script.py"), "w") as file:
+            file.write(final_response_text[9:-4])
+    except Exception as e:
+        print(e)
 
-# --- OR ---
 
-# Uncomment the following lines if running as a standard Python script (.py file):
-# import asyncio
-# if __name__ == "__main__":
-#     try:
-#         asyncio.run(run_conversation())
-#     except Exception as e:
-#         print(f"An error occurred: {e}")
+# Main async function to run the examples
+async def main():
+    await call_agent_async("What is the average temperature of each room in mornings and evenings?")
+
+
+# Execute the main async function
+try:
+    asyncio.run(main())
+except RuntimeError as e:
+    # Handle specific error when running asyncio.run in an already running loop (like Jupyter/Colab)
+    if "cannot be called from a running event loop" in str(e):
+        print("\nRunning in an existing event loop (like Colab/Jupyter).")
+        print("Please run `await main()` in a notebook cell instead.")
+        # If in an interactive environment like a notebook, you might need to run:
+        # await main()
+    else:
+        raise e  # Re-raise other runtime errors

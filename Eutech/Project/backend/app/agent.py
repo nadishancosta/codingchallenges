@@ -2,6 +2,7 @@ import os
 import google.generativeai as genai
 from google.generativeai.protos import FunctionResponse, Part
 from google.generativeai import types
+from google.adk.code_executors import BuiltInCodeExecutor
 from dotenv import load_dotenv
 import json
 from tools import python_code_interpreter, AVAILABLE_TOOLS
@@ -49,10 +50,12 @@ def get_gemini_model():
     
     # CHANGE 2: The entire manual dictionary definition is replaced by this single line.
     # We pass the function object itself in a list. The library handles the schema generation.
-    model = genai.GenerativeModel(
+    model = genai.GenerativeModel(code
         model_name='gemini-2.5-pro', 
         system_instruction=SYSTEM_PROMPT,
-        tools= types.Tool(function_declarations=[python_code_interpreter]) 
+        code_executor = BuiltInCodeExecutor(),
+        tools= types.Tool(function_declarations=[python_code_interpreter]) ,
+        
     )
     return model
 

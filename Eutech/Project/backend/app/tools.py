@@ -1,50 +1,87 @@
 import os
 import io
+import json
 import pandas as pd
 from contextlib import redirect_stdout
+from thefuzz import process, fuzz
 
 # Define the path to the data directory
 DATA_DIR = os.path.join(os.path.dirname(__file__), '..', 'data')
 
-def python_code_interpreter(code: str) -> str:
+def _load_and_prepare_data() -> pd.DataFrame:
+
+    """Retrieves the the JSON dataset in the data folder.
+
+    Args:
+        None
+
+    Returns:
+        pd.DataFrame: A dataframe containing the room sensor data for all the rooms.
+              Includes a 'status' key ('success' or 'error').
+              If 'success', includes a 'df' key with the dataframe object.
+              If 'error', includes an 'error_message' key.
     """
-    Executes a string of Python code and returns the output.
-    The code has access to the pandas library (pd) and the DATA_DIR variable.
-    The final result should be printed as a JSON string to stdout.
-    Example of a valid print statement for a final answer:
-    print(df.to_json(orient='split'))
-    """
-    try:
-        # Create a dictionary to serve as the local namespace for exec
-        local_vars = {
-            'pd': pd,
-            'os': os,
-            'DATA_DIR': DATA_DIR,
-            '__builtins__': __builtins__ # Ensure basic builtins are available
-        }
-        
-        # Use StringIO to capture the output of print statements
-        f = io.StringIO()
-        with redirect_stdout(f):
-            exec(code, {"pd": pd, "os": os, "DATA_DIR": DATA_DIR}, local_vars)
-        
-        output = f.getvalue()
-        
-        # If there's no print output, we try to get the last evaluated expression
-        # This is a bit more advanced but can be useful. For now, we rely on print.
-        if not output and local_vars.get('result'):
-             output = str(local_vars.get('result'))
 
-        if not output:
-            return "Code executed successfully, but produced no output. Remember to use the 'print()' function to output your final result as a string, preferably in JSON format."
+    if not os.path.exists(DATA_DIR):
+        print(f"Error: Data directory '{DATA_DIR}' not found.")
+        return None
         
-        return output
+    standardized_data = []
+    # These are the standard names we will use for the DataFrame columns.
+    standard_columns = ['Timestamp', 'CO2', 'Relative Humidity', 'Temperature']
 
-    except Exception as e:
-        return f"Error executing code: {str(e)}"
+    for filename in os.listdir(DATA_DIR):
+        if filename.endswith('.ndjson'):
+            # Create a clean room name, e.g., 'sensor_data_room 1.txt' -> 'Room 1'
+            room_name = filename.split('.')[0].replace('_', '')[-6:].title()
+            file_path = os.path.join(DATA_DIR, filename)
+            
+            try:
+                with open(file_path, 'r', encoding='utf-8') as f:
+                    for i, line in enumerate(f):
+                        # Skip empty or whitespace-only lines
+                        if not line.strip():
+                            continue
+                        
+                        try:
+                            # Load the JSON object from the line
+                            data_dict = json.loads(line)
+                            
+                            # Get values in their insertion order (works in Python 3.7+)
+                            values = list(data_dict.values())
+                            
+                            # Validate that we have the expected number of fields
+                            if len(values) != 4:
+                                print(f"Warning: Skipping malformed line {i+1} in {filename} (expected 4 fields, got {len(values)}).")
+                                continue
 
-# This is a dictionary that maps tool names to their functions.
-# The agent will use these names to call the tools.
-AVAILABLE_TOOLS = {
-    "python_code_interpreter": python_code_interpreter,
-}
+                            # Create a standardized dictionary by zipping keys and values
+                            record = dict(zip(standard_columns, values))
+                            record['Room'] = room_name  # Add the room name
+                            standardized_data.append(record)
+                            
+                        except (json.JSONDecodeError, IndexError) as e:
+                            print(f"Warning: Skipping corrupted line {i+1} in {filename}. Error: {e}")
+                            continue
+
+            except Exception as e:
+                print(f"Error reading file {filename}: {e}")
+                continue
+                
+    if not standardized_data:
+        print("Error: No data could be loaded. Check file contents and paths.")
+        return None
+
+    # Create the DataFrame from our list of standardized records
+    df = pd.DataFrame(standardized_data)
+    
+    # Convert relevant columns to the correct data types, coercing errors
+    df['Timestamp'] = pd.to_datetime(df['Timestamp'], errors='coerce')
+    for col in ['CO2', 'Relative Humidity', 'Temperature']:
+        df[col] = pd.to_numeric(df[col], errors='coerce')
+    
+    # Drop any rows where critical data conversion failed
+    df.dropna(subset=['Timestamp', 'CO2', 'Relative Humidity', 'Temperature'], inplace=True)
+
+    return df
+

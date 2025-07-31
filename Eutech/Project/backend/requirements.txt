@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
 python-dotenv
-pandas
-python-multipart
 google-generativeai
+pandas
+python-multipart # For form data

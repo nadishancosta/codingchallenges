@@ -4,6 +4,7 @@ Please install all the requirements listed in the requirements.txt file using:
 This will ensure you have a similar environment to me in running the code
 
 ## The directory and folder structure:
+<!-- 
 project/
 ├── backend/
 │   ├── app/
@@ -31,7 +32,7 @@ project/
     │   ├── App.js                  # Main script
     │   └── index.js
     ├── .env
-    └── package.json                # Packages used
+    └── package.json                # Packages used -->
 
 
 ## Operational Instructions

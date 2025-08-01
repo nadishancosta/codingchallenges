@@ -1,6 +1,7 @@
 import React from 'react';
 
 const ResponseDisplay = ({ responseData, isLoading, error, submittedQuery }) => {
+  
   if (isLoading) {
     return <div className="loading-spinner">Analyzing...</div>;
   }
@@ -10,9 +11,10 @@ const ResponseDisplay = ({ responseData, isLoading, error, submittedQuery }) => 
   }
 
   if (!responseData) {
-    return null; // Don't render anything if there's no response yet
+    return null;
   }
 
+  console.log(responseData.data);
   const renderContent = () => {
     switch (responseData.type) {
       case 'table':

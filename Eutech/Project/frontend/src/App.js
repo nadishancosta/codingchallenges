@@ -12,7 +12,7 @@ function App() {
   const [error, setError] = useState(null);
 
   const handleSubmit = async (event) => {
-    event.preventDefault(); // Prevent default form submission
+    event.preventDefault();
     if (!query.trim()) return;
 
     setIsLoading(true);
@@ -29,7 +29,7 @@ function App() {
       setError(errorMessage);
     } finally {
       setIsLoading(false);
-      setQuery(''); // Clear input field after submission
+      setQuery('');
     }
   };
 

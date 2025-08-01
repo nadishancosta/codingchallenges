@@ -1,18 +1,35 @@
 
+import pandas as pd
+
 def process_iaq_query(df):
     """
-    Calculates the average CO2 level in Room 1.
+    Analyzes CO2 variation by day of the week for each room in the IAQ data.
 
     Args:
-        df (pandas DataFrame): DataFrame containing IAQ data with columns:
-                                ['Timestamp', 'CO2', 'Relative Humidity', 'Temperature', 'Room']
+        df (pandas DataFrame): DataFrame with columns 'Timestamp', 'CO2', 'Room'.
 
     Returns:
-        dict: A JSON-compatible dictionary containing the result.
+        dict: JSON-compatible dictionary containing CO2 statistics by day of the week for each room.
     """
 
-    room = "Room 1"
-    df_room1 = df[df['Room'] == room]
-    average_co2 = df_room1['CO2'].mean()
+    try:
+        df['Timestamp'] = pd.to_datetime(df['Timestamp'])
+        df['DayOfWeek'] = df['Timestamp'].dt.day_name()
 
-    return {"type": "text", "data": f"The average CO2 level in {room} was {average_co2:.2f} ppm."}
+        result = {}
+        for room in df['Room'].unique():
+            room_data = df[df['Room'] == room]
+            co2_by_day = room_data.groupby('DayOfWeek')['CO2'].agg(['mean', 'median', 'std']).to_dict('index')
+            result[room] = co2_by_day
+
+        # Flatten the structure for table representation
+        headers = ['Room', 'DayOfWeek', 'Mean CO2', 'Median CO2', 'Std CO2']
+        rows = []
+        for room, day_data in result.items():
+            for day, co2_stats in day_data.items():
+                rows.append([room, day, co2_stats['mean'], co2_stats['median'], co2_stats['std']])
+
+        return {"type": "table", "data": {"headers": headers, "rows": rows}}
+
+    except Exception as e:
+        return {"type": "text", "data": f"Error processing query: {str(e)}"}

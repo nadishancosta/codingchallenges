@@ -2,19 +2,11 @@ from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from .agent import run_prompt
+import json
 
-app = FastAPI(
-    # title="IAQ Analysis Tool API",
-    # description="API for the AI-powered Indoor Air Quality Analysis Tool",
-    # version="1.0.0"
-)
+app = FastAPI()
 
-# Configure CORS (Cross-Origin Resource Sharing)
-# This allows our React frontend (running on a different port) to call the API
-origins = [
-    "http://localhost:3000", # The default port for React apps
-    # Add any other origins if necessary
-]
+origins = ["http://localhost:3000",]
 
 app.add_middleware(
     CORSMiddleware,
@@ -24,27 +16,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Define the request body model for type checking
+
 class QueryRequest(BaseModel):
     query: str
 
 @app.post("/analyze")
 async def analyze_query(request: QueryRequest):
-    """
-    Receives a user query, processes it with the AI agent,
-    and returns the structured analysis result.
-    """
     if not request.query:
         raise HTTPException(status_code=400, detail="Query cannots be empty.")
     
     try:
-        # This is the main call to our agent logic
-        result = run_prompt(request.query)
-        return await result
+        result = await run_prompt(request.query)
+        return result
+    
     except Exception as e:
-        # Generic error handler for unexpected issues
+        
         raise HTTPException(status_code=500, detail=f"An internal error occurred: {e}")
 
 @app.get("/")
 def read_root():
-    return {"message": "Welcome to the IAQ Analysis Tool API"}
+    return {"message": "API"}

@@ -13,7 +13,7 @@ const QueryInput = ({ query, setQuery, handleSubmit, isLoading }) => {
         placeholder="e.g., What was the average co2 level per day?"
         disabled={isLoading}
       />
-      {/* We are using form submission on enter, so a button is optional */}
+      <button id = "submit_btn" type="submit" disabled={isLoading}>Submit</button>
     </form>
   );
 };
